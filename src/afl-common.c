@@ -47,7 +47,7 @@
 #include <unistd.h>
 #include <limits.h>
 #include <sys/types.h>
-#include <sys/stat.h>
+//#include <sys/stat.h>
 #include <fcntl.h>
 #include <signal.h>
 
@@ -168,61 +168,61 @@ void set_sanitizer_defaults() {
 
 }
 
-u32 check_binary_signatures(u8 *fn) {
-
-  int ret = 0, fd = open(fn, O_RDONLY);
-  if (fd < 0) { PFATAL("Unable to open '%s'", fn); }
-  struct stat st;
-  if (fstat(fd, &st) < 0) { PFATAL("Unable to fstat '%s'", fn); }
-  u32 f_len = st.st_size;
-  u8 *f_data = mmap(0, f_len, PROT_READ, MAP_PRIVATE, fd, 0);
-  if (f_data == MAP_FAILED) { PFATAL("Unable to mmap file '%s'", fn); }
-  close(fd);
-
-  if (afl_memmem(f_data, f_len, PERSIST_SIG, strlen(PERSIST_SIG) + 1)) {
-
-    if (!be_quiet) { OKF(cPIN "Persistent mode binary detected."); }
-    setenv(PERSIST_ENV_VAR, "1", 1);
-    ret = 1;
-
-  } else if (getenv("AFL_PERSISTENT")) {
-
-    if (!be_quiet) { OKF(cPIN "Persistent mode enforced."); }
-    setenv(PERSIST_ENV_VAR, "1", 1);
-    ret = 1;
-
-  } else if (getenv("AFL_FRIDA_PERSISTENT_ADDR")) {
-
-    if (!be_quiet) {
-
-      OKF("FRIDA Persistent mode configuration options detected.");
-
-    }
-
-    setenv(PERSIST_ENV_VAR, "1", 1);
-    ret = 1;
-
-  }
-
-  if (afl_memmem(f_data, f_len, DEFER_SIG, strlen(DEFER_SIG) + 1)) {
-
-    if (!be_quiet) { OKF(cPIN "Deferred forkserver binary detected."); }
-    setenv(DEFER_ENV_VAR, "1", 1);
-    ret += 2;
-
-  } else if (getenv("AFL_DEFER_FORKSRV")) {
-
-    if (!be_quiet) { OKF(cPIN "Deferred forkserver enforced."); }
-    setenv(DEFER_ENV_VAR, "1", 1);
-    ret += 2;
-
-  }
-
-  if (munmap(f_data, f_len)) { PFATAL("unmap() failed"); }
-
-  return ret;
-
-}
+//u32 check_binary_signatures(u8 *fn) {
+//
+//  int ret = 0, fd = open(fn, O_RDONLY);
+//  if (fd < 0) { PFATAL("Unable to open '%s'", fn); }
+//  struct stat st;
+//  if (fstat(fd, &st) < 0) { PFATAL("Unable to fstat '%s'", fn); }
+//  u32 f_len = st.st_size;
+//  u8 *f_data = mmap(0, f_len, PROT_READ, MAP_PRIVATE, fd, 0);
+//  if (f_data == MAP_FAILED) { PFATAL("Unable to mmap file '%s'", fn); }
+//  close(fd);
+//
+//  if (afl_memmem(f_data, f_len, PERSIST_SIG, strlen(PERSIST_SIG) + 1)) {
+//
+//    if (!be_quiet) { OKF(cPIN "Persistent mode binary detected."); }
+//    setenv(PERSIST_ENV_VAR, "1", 1);
+//    ret = 1;
+//
+//  } else if (getenv("AFL_PERSISTENT")) {
+//
+//    if (!be_quiet) { OKF(cPIN "Persistent mode enforced."); }
+//    setenv(PERSIST_ENV_VAR, "1", 1);
+//    ret = 1;
+//
+//  } else if (getenv("AFL_FRIDA_PERSISTENT_ADDR")) {
+//
+//    if (!be_quiet) {
+//
+//      OKF("FRIDA Persistent mode configuration options detected.");
+//
+//    }
+//
+//    setenv(PERSIST_ENV_VAR, "1", 1);
+//    ret = 1;
+//
+//  }
+//
+//  if (afl_memmem(f_data, f_len, DEFER_SIG, strlen(DEFER_SIG) + 1)) {
+//
+//    if (!be_quiet) { OKF(cPIN "Deferred forkserver binary detected."); }
+//    setenv(DEFER_ENV_VAR, "1", 1);
+//    ret += 2;
+//
+//  } else if (getenv("AFL_DEFER_FORKSRV")) {
+//
+//    if (!be_quiet) { OKF(cPIN "Deferred forkserver enforced."); }
+//    setenv(DEFER_ENV_VAR, "1", 1);
+//    ret += 2;
+//
+//  }
+//
+//  if (munmap(f_data, f_len)) { PFATAL("unmap() failed"); }
+//
+//  return ret;
+//
+//}
 
 void detect_file_args(char **argv, u8 *prog_in, bool *use_stdin) {
 
@@ -393,179 +393,180 @@ char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
 /* Find binary, used by analyze, showmap, tmin
    @returns the path, allocating the string */
 
-u8 *find_binary(u8 *fname) {
-
-  // TODO: Merge this function with check_binary of afl-fuzz-init.c
-
-  u8 *env_path = NULL;
-  u8 *target_path = NULL;
-
-  struct stat st;
-
-  if (unlikely(!fname)) { FATAL("No binary supplied"); }
-
-  if (strchr(fname, '/') || !(env_path = getenv("PATH"))) {
-
-    target_path = ck_strdup(fname);
-
-    if (stat(target_path, &st) || !S_ISREG(st.st_mode) ||
-        !(st.st_mode & 0111) || st.st_size < 4) {
-
-      ck_free(target_path);
-      FATAL("Program '%s' not found or not executable", fname);
-
-    }
-
-  } else {
-
-    while (env_path) {
-
-      u8 *cur_elem, *delim = strchr(env_path, ':');
-
-      if (delim) {
-
-        cur_elem = ck_alloc(delim - env_path + 1);
-        if (unlikely(!cur_elem)) {
-
-          FATAL(
-              "Unexpected overflow when processing ENV. This should never "
-              "had happened.");
-
-        }
-
-        memcpy(cur_elem, env_path, delim - env_path);
-        delim++;
-
-      } else {
-
-        cur_elem = ck_strdup(env_path);
-
-      }
-
-      env_path = delim;
-
-      if (cur_elem[0]) {
-
-        target_path = alloc_printf("%s/%s", cur_elem, fname);
-
-      } else {
-
-        target_path = ck_strdup(fname);
-
-      }
-
-      ck_free(cur_elem);
-
-      if (!stat(target_path, &st) && S_ISREG(st.st_mode) &&
-          (st.st_mode & 0111) && st.st_size >= 4) {
-
-        break;
-
-      }
-
-      ck_free(target_path);
-      target_path = NULL;
-
-    }
-
-    if (!target_path) {
-
-      FATAL("Program '%s' not found or not executable", fname);
-
-    }
-
-  }
-
-  return target_path;
-
-}
+//u8 *find_binary(u8 *fname) {
+//
+//  // TODO: Merge this function with check_binary of afl-fuzz-init.c
+//
+//  u8 *env_path = NULL;
+//  u8 *target_path = NULL;
+//
+//  struct stat st;
+//
+//  if (unlikely(!fname)) { FATAL("No binary supplied"); }
+//
+//  if (strchr(fname, '/') || !(env_path = getenv("PATH"))) {
+//
+//    target_path = ck_strdup(fname);
+//
+//    if (stat(target_path, &st) || !S_ISREG(st.st_mode) ||
+//        !(st.st_mode & 0111) || st.st_size < 4) {
+//
+//      ck_free(target_path);
+//      FATAL("Program '%s' not found or not executable", fname);
+//
+//    }
+//
+//  } else {
+//
+//    while (env_path) {
+//
+//      u8 *cur_elem, *delim = strchr(env_path, ':');
+//
+//      if (delim) {
+//
+//        cur_elem = ck_alloc(delim - env_path + 1);
+//        if (unlikely(!cur_elem)) {
+//
+//          FATAL(
+//              "Unexpected overflow when processing ENV. This should never "
+//              "had happened.");
+//
+//        }
+//
+//        memcpy(cur_elem, env_path, delim - env_path);
+//        delim++;
+//
+//      } else {
+//
+//        cur_elem = ck_strdup(env_path);
+//
+//      }
+//
+//      env_path = delim;
+//
+//      if (cur_elem[0]) {
+//
+//        target_path = alloc_printf("%s/%s", cur_elem, fname);
+//
+//      } else {
+//
+//        target_path = ck_strdup(fname);
+//
+//      }
+//
+//      ck_free(cur_elem);
+//
+//      if (!stat(target_path, &st) && S_ISREG(st.st_mode) &&
+//          (st.st_mode & 0111) && st.st_size >= 4) {
+//
+//        break;
+//
+//      }
+//
+//      ck_free(target_path);
+//      target_path = NULL;
+//
+//    }
+//
+//    if (!target_path) {
+//
+//      FATAL("Program '%s' not found or not executable", fname);
+//
+//    }
+//
+//  }
+//
+//  return target_path;
+//
+//}
 
 u8 *find_afl_binary(u8 *own_loc, u8 *fname) {
-
-  u8 *afl_path = NULL, *target_path, *own_copy, *tmp;
-  int perm = X_OK;
-
-  if ((tmp = strrchr(fname, '.'))) {
-
-    if (!strcasecmp(tmp, ".so") || !strcasecmp(tmp, ".dylib")) { perm = R_OK; }
-
-  }
-
-  if ((afl_path = getenv("AFL_PATH"))) {
-
-    target_path = alloc_printf("%s/%s", afl_path, fname);
-    if (!access(target_path, perm)) {
-
-      return target_path;
-
-    } else {
-
-      ck_free(target_path);
-
-    }
-
-  }
-
-  if (own_loc) {
-
-    own_copy = ck_strdup(own_loc);
-    u8 *rsl = strrchr(own_copy, '/');
-
-    if (rsl) {
-
-      *rsl = 0;
-
-      target_path = alloc_printf("%s/%s", own_copy, fname);
-      ck_free(own_copy);
-
-      if (!access(target_path, perm)) {
-
-        return target_path;
-
-      } else {
-
-        ck_free(target_path);
-
-      }
-
-    } else {
-
-      ck_free(own_copy);
-
-    }
-
-  }
-
-  if (perm == X_OK) {
-
-    target_path = alloc_printf("%s/%s", BIN_PATH, fname);
-
-  } else {
-
-    target_path = alloc_printf("%s/%s", AFL_PATH, fname);
-
-  }
-
-  if (!access(target_path, perm)) {
-
-    return target_path;
-
-  } else {
-
-    ck_free(target_path);
-
-  }
-
-  if (perm == X_OK) {
-
-    return find_binary(fname);
-
-  } else {
-
-    FATAL("Library '%s' not found", fname);
-
-  }
-
+//
+//  u8 *afl_path = NULL, *target_path, *own_copy, *tmp;
+//  int perm = X_OK;
+//
+//  if ((tmp = strrchr(fname, '.'))) {
+//
+//    if (!strcasecmp(tmp, ".so") || !strcasecmp(tmp, ".dylib")) { perm = R_OK; }
+//
+//  }
+//
+//  if ((afl_path = getenv("AFL_PATH"))) {
+//
+//    target_path = alloc_printf("%s/%s", afl_path, fname);
+//    if (!access(target_path, perm)) {
+//
+//      return target_path;
+//
+//    } else {
+//
+//      ck_free(target_path);
+//
+//    }
+//
+//  }
+//
+//  if (own_loc) {
+//
+//    own_copy = ck_strdup(own_loc);
+//    u8 *rsl = strrchr(own_copy, '/');
+//
+//    if (rsl) {
+//
+//      *rsl = 0;
+//
+//      target_path = alloc_printf("%s/%s", own_copy, fname);
+//      ck_free(own_copy);
+//
+//      if (!access(target_path, perm)) {
+//
+//        return target_path;
+//
+//      } else {
+//
+//        ck_free(target_path);
+//
+//      }
+//
+//    } else {
+//
+//      ck_free(own_copy);
+//
+//    }
+//
+//  }
+//
+//  if (perm == X_OK) {
+//
+//    target_path = alloc_printf("%s/%s", BIN_PATH, fname);
+//
+//  } else {
+//
+//    target_path = alloc_printf("%s/%s", AFL_PATH, fname);
+//
+//  }
+//
+//  if (!access(target_path, perm)) {
+//
+//    return target_path;
+//
+//  } else {
+//
+//    ck_free(target_path);
+//
+//  }
+//
+//  if (perm == X_OK) {
+//
+//    return find_binary(fname);
+//
+//  } else {
+//
+//    FATAL("Library '%s' not found", fname);
+//
+//  }
+  FATAL("Library '%s' not found", fname);
+  return 0;
 }
 
 int parse_afl_kill_signal(u8 *numeric_signal_as_str, int default_signal) {
@@ -1415,53 +1416,3 @@ s32 create_file(u8 *fn) {
   return fd;
 
 }
-
-#ifdef __linux__
-
-/* Nyx requires a tmp workdir to access specific files (such as mmapped files,
- * etc.). This helper function basically creates both a path to a tmp workdir
- * and the workdir itself. If the environment variable TMPDIR is set, we use
- * that as the base directory, otherwise we use /tmp. */
-char *create_nyx_tmp_workdir(void) {
-
-  char *tmpdir = getenv("TMPDIR");
-
-  if (!tmpdir) { tmpdir = "/tmp"; }
-
-  char *nyx_out_dir_path =
-      alloc_printf("%s/.nyx_tmp_%d/", tmpdir, (u32)getpid());
-
-  if (mkdir(nyx_out_dir_path, 0700)) { PFATAL("Unable to create nyx workdir"); }
-
-  return nyx_out_dir_path;
-
-}
-
-/* Vice versa, we remove the tmp workdir for nyx with this helper function. */
-void remove_nyx_tmp_workdir(afl_forkserver_t *fsrv, char *nyx_out_dir_path) {
-
-  char *workdir_path = alloc_printf("%s/workdir", nyx_out_dir_path);
-
-  if (access(workdir_path, R_OK) == 0) {
-
-    if (fsrv->nyx_handlers->nyx_remove_work_dir(workdir_path) != true) {
-
-      WARNF("Unable to remove nyx workdir (%s)", workdir_path);
-
-    }
-
-  }
-
-  if (rmdir(nyx_out_dir_path)) {
-
-    WARNF("Unable to remove nyx workdir (%s)", nyx_out_dir_path);
-
-  }
-
-  ck_free(workdir_path);
-  ck_free(nyx_out_dir_path);
-
-}
-
-#endif
-

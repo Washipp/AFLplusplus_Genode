@@ -1016,20 +1016,20 @@ int main(int argc, char **argv_orig, char **envp) {
 
   set_up_environment(argv);
 
-#ifdef __linux__
-  if (!fsrv.nyx_mode) {
-
-    fsrv.target_path = find_binary(argv[optind]);
-
-  } else {
-
-    fsrv.target_path = ck_strdup(argv[optind]);
-
-  }
-
-#else
-  fsrv.target_path = find_binary(argv[optind]);
-#endif
+//#ifdef __linux__
+//  if (!fsrv.nyx_mode) {
+//
+//    fsrv.target_path = find_binary(argv[optind]);
+//
+//  } else {
+//
+//    fsrv.target_path = ck_strdup(argv[optind]);
+//
+//  }
+//
+//#else
+//  fsrv.target_path = find_binary(argv[optind]);
+//#endif
 
   fsrv.trace_bits = afl_shm_init(&shm, map_size, 0);
   detect_file_args(argv + optind, fsrv.out_file, &use_stdin);
@@ -1098,11 +1098,11 @@ int main(int argc, char **argv_orig, char **envp) {
       &fsrv, NULL, NULL, (fsrv.qemu_mode || unicorn_mode) ? SIGKILL : SIGTERM);
 
   read_initial_file();
-#ifdef __linux__
-  if (!fsrv.nyx_mode) { (void)check_binary_signatures(fsrv.target_path); }
-#else
-  (void)check_binary_signatures(fsrv.target_path);
-#endif
+//#ifdef __linux__
+//  if (!fsrv.nyx_mode) { (void)check_binary_signatures(fsrv.target_path); }
+//#else
+//  (void)check_binary_signatures(fsrv.target_path);
+//#endif
 
   ACTF("Performing dry run (mem limit = %llu MB, timeout = %u ms%s)...",
        mem_limit, exec_tmout, edges_only ? ", edges only" : "");

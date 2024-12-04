@@ -220,10 +220,6 @@ static void usage(u8 *argv0, int more_help) {
       "  -U            - use unicorn-based instrumentation (Unicorn mode)\n"
       "  -W            - use qemu-based instrumentation with Wine (Wine mode)\n"
 #endif
-#if defined(__linux__)
-      "  -X            - use VM fuzzing (NYX mode - standalone mode)\n"
-      "  -Y            - use VM fuzzing (NYX mode - multiple instances mode)\n"
-#endif
       "\n"
 
       "Mutator settings:\n"
@@ -1125,30 +1121,6 @@ int main(int argc, char **argv_orig, char **envp) {
         afl->use_banner = optarg;
         break;
 
-  #ifdef __linux__
-      case 'X':                                                 /* NYX mode */
-
-        if (afl->fsrv.nyx_mode) { FATAL("Multiple -X options not supported"); }
-
-        afl->fsrv.nyx_parent = true;
-        afl->fsrv.nyx_standalone = true;
-        afl->fsrv.nyx_mode = 1;
-        afl->fsrv.nyx_id = 0;
-
-        break;
-
-      case 'Y':                                     /* NYX distributed mode */
-        if (afl->fsrv.nyx_mode) { FATAL("Multiple -Y options not supported"); }
-
-        afl->fsrv.nyx_mode = 1;
-
-        break;
-  #else
-      case 'X':
-      case 'Y':
-        FATAL("Nyx mode is only availabe on linux...");
-        break;
-  #endif
       case 'A':                                           /* CoreSight mode */
 
   #if !defined(__aarch64__) || !defined(__linux__)
@@ -1520,17 +1492,6 @@ int main(int argc, char **argv_orig, char **envp) {
       "https://github.com/AFLplusplus/AFLplusplus");
   OKF("NOTE: AFL++ >= v3 has changed defaults and behaviours - see README.md");
 
-  #ifdef __linux__
-  if (afl->fsrv.nyx_mode) {
-
-    OKF("AFL++ Nyx mode is enabled (developed and maintained by Sergej "
-        "Schumilo)");
-    OKF("Nyx is open source, get it at https://github.com/Nyx-Fuzz");
-
-  }
-
-  #endif
-
   // silently disable deterministic mutation if custom mutators are used
   if (!afl->skip_deterministic && afl->afl_env.afl_custom_mutator_only) {
 
@@ -1557,11 +1518,7 @@ int main(int argc, char **argv_orig, char **envp) {
   configure_afl_kill_signals(
       &afl->fsrv, afl->afl_env.afl_child_kill_signal,
       afl->afl_env.afl_fsrv_kill_signal,
-      (afl->fsrv.qemu_mode || afl->unicorn_mode || afl->fsrv.use_fauxsrv
-  #ifdef __linux__
-       || afl->fsrv.nyx_mode
-  #endif
-       )
+      (afl->fsrv.qemu_mode || afl->unicorn_mode || afl->fsrv.use_fauxsrv)
           ? SIGKILL
           : SIGTERM);
 
@@ -1578,56 +1535,6 @@ int main(int argc, char **argv_orig, char **envp) {
     OKF("No -M/-S set, autoconfiguring for \"-S %s\"", afl->sync_id);
 
   }
-
-  #ifdef __linux__
-  if (afl->fsrv.nyx_mode) {
-
-    if (afl->fsrv.nyx_standalone && strcmp(afl->sync_id, "default") != 0) {
-
-      FATAL(
-          "distributed fuzzing is not supported in this Nyx mode (use -Y "
-          "instead)");
-
-    }
-
-    if (!afl->fsrv.nyx_standalone) {
-
-      if (afl->is_main_node) {
-
-        if (strcmp("0", afl->sync_id) != 0) {
-
-          FATAL(
-              "for Nyx -Y mode, the Main (-M) parameter has to be set to 0 (-M "
-              "0)");
-
-        }
-
-        afl->fsrv.nyx_parent = true;
-        afl->fsrv.nyx_id = 0;
-
-      }
-
-      if (afl->is_secondary_node) {
-
-        long nyx_id = strtol(afl->sync_id, NULL, 10);
-
-        if (nyx_id == 0 || nyx_id == LONG_MAX) {
-
-          FATAL(
-              "for Nyx -Y mode, the Secondary (-S) parameter has to be a "
-              "numeric value and >= 1 (e.g. -S 1)");
-
-        }
-
-        afl->fsrv.nyx_id = nyx_id;
-
-      }
-
-    }
-
-  }
-
-  #endif
 
   if (afl->sync_id) { fix_up_sync(afl); }
 
@@ -1891,28 +1798,8 @@ int main(int argc, char **argv_orig, char **envp) {
   afl->fsrv.use_fauxsrv = afl->non_instrumented_mode == 1 || afl->no_forkserver;
   afl->fsrv.max_length = afl->max_length;
 
-  #ifdef __linux__
-  if (!afl->fsrv.nyx_mode) {
-
-    check_crash_handling();
-    check_cpu_governor(afl);
-
-  } else {
-
-    u8 *libnyx_binary = find_afl_binary(argv[0], "libnyx.so");
-    afl->fsrv.nyx_handlers = afl_load_libnyx_plugin(libnyx_binary);
-    if (afl->fsrv.nyx_handlers == NULL) {
-
-      FATAL("failed to initialize libnyx.so...");
-
-    }
-
-  }
-
-  #else
   check_crash_handling();
   check_cpu_governor(afl);
-  #endif
 
   #ifdef __APPLE__
   setenv("DYLD_NO_PIE", "1", 0);
@@ -2025,15 +1912,6 @@ int main(int argc, char **argv_orig, char **envp) {
   #ifdef HAVE_AFFINITY
   bind_to_free_cpu(afl);
   #endif                                                   /* HAVE_AFFINITY */
-
-  #ifdef __linux__
-  if (afl->fsrv.nyx_mode && afl->fsrv.nyx_bind_cpu_id == 0xFFFFFFFF) {
-
-    afl->fsrv.nyx_bind_cpu_id = 0;
-
-  }
-
-  #endif
 
   #ifdef __HAIKU__
   /* Prioritizes performance over power saving */
@@ -2244,28 +2122,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->in_place_resume && !afl->afl_env.afl_no_fastresume) {
 
-  #ifdef __linux__
-    u64 target_hash = 0;
-    if (afl->fsrv.nyx_mode) {
-
-      nyx_load_target_hash(&afl->fsrv);
-      target_hash = afl->fsrv.nyx_target_hash64;
-
-    } else {
-
-      target_hash = get_binary_hash(afl->fsrv.target_path);
-
-    }
-
-  #else
     u64 target_hash = get_binary_hash(afl->fsrv.target_path);
-  #endif
 
-    if ((!target_hash || prev_target_hash != target_hash)
-  #ifdef __linux__
-        || (afl->fsrv.nyx_mode && target_hash == 0)
-  #endif
-    ) {
+
+    if ((!target_hash || prev_target_hash != target_hash)) {
 
       ACTF("Target binary is different, cannot perform FAST RESUME!");
 

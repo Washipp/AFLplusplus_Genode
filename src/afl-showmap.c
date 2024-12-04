@@ -1380,20 +1380,20 @@ int main(int argc, char **argv_orig, char **envp) {
 
   set_up_environment(fsrv, argv);
 
-#ifdef __linux__
-  if (!fsrv->nyx_mode) {
-
-    fsrv->target_path = find_binary(argv[optind]);
-
-  } else {
-
-    fsrv->target_path = ck_strdup(argv[optind]);
-
-  }
-
-#else
-  fsrv->target_path = find_binary(argv[optind]);
-#endif
+//#ifdef __linux__
+//  if (!fsrv->nyx_mode) {
+//
+//    fsrv->target_path = find_binary(argv[optind]);
+//
+//  } else {
+//
+//    fsrv->target_path = ck_strdup(argv[optind]);
+//
+//  }
+//
+//#else
+//  fsrv->target_path = find_binary(argv[optind]);
+//#endif
 
   fsrv->trace_bits = afl_shm_init(&shm, map_size, 0);
 
@@ -1517,16 +1517,16 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-#ifdef __linux__
-  if (!fsrv->nyx_mode && (in_dir || in_filelist)) {
-
-    (void)check_binary_signatures(fsrv->target_path);
-
-  }
-
-#else
-  if (in_dir) { (void)check_binary_signatures(fsrv->target_path); }
-#endif
+//#ifdef __linux__
+//  if (!fsrv->nyx_mode && (in_dir || in_filelist)) {
+//
+//    (void)check_binary_signatures(fsrv->target_path);
+//
+//  }
+//
+//#else
+//  if (in_dir) { (void)check_binary_signatures(fsrv->target_path); }
+//#endif
 
   shm_fuzz = ck_alloc(sizeof(sharedmem_t));
 

@@ -83,21 +83,9 @@ void write_setup_file(afl_state_t *afl, u32 argc, char **argv) {
   snprintf(fn2, PATH_MAX, "%s/target_hash", afl->out_dir);
   FILE *f2 = create_ffile(fn2);
 
-#ifdef __linux__
-  if (afl->fsrv.nyx_mode) {
 
-    nyx_load_target_hash(&afl->fsrv);
-    fprintf(f2, "%llx\n", afl->fsrv.nyx_target_hash64);
-
-  } else {
-
-    fprintf(f2, "%p\n", (void *)get_binary_hash(afl->fsrv.target_path));
-
-  }
-
-#else
   fprintf(f2, "%p\n", (void *)get_binary_hash(afl->fsrv.target_path));
-#endif
+
   fclose(f2);
 
   snprintf(fn, PATH_MAX, "%s/fuzzer_setup", afl->out_dir);
@@ -919,28 +907,11 @@ void show_stats_normal(afl_state_t *afl) {
     banner_pad = (79 - banner_len) / 2;
     memset(banner, ' ', banner_pad);
 
-#ifdef __linux__
-    if (afl->fsrv.nyx_mode) {
-
-      snprintf(banner + banner_pad, sizeof(banner) - banner_pad,
-               "%s%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN
-               "[%s] - Nyx",
-               afl->crash_mode ? cPIN : cYEL, fuzzer_name, si, afl->use_banner,
-               afl->power_name);
-
-    } else {
-
-#endif
       snprintf(banner + banner_pad, sizeof(banner) - banner_pad,
                "%s%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s]",
                afl->crash_mode ? cPIN : cYEL, fuzzer_name, si, afl->use_banner,
                afl->power_name);
 
-#ifdef __linux__
-
-    }
-
-#endif
 
     if (banner_pad)
       for (u32 i = 0; i < banner_pad; ++i)
@@ -1726,19 +1697,6 @@ void show_stats_pizza(afl_state_t *afl) {
     banner_pad = (79 - banner_len) / 2;
     memset(banner, ' ', banner_pad);
 
-#ifdef __linux__
-    if (afl->fsrv.nyx_mode) {
-
-      snprintf(banner + banner_pad, sizeof(banner) - banner_pad,
-               "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s] - Nyx",
-               afl->crash_mode ? cPIN
-                   "Mozzarbella Pizzeria table booking system"
-                               : cYEL "Mozzarbella Pizzeria management system",
-               si, afl->use_banner, afl->power_name);
-
-    } else {
-
-#endif
       snprintf(banner + banner_pad, sizeof(banner) - banner_pad,
                "%s " cLCY VERSION cLBL " {%s} " cLGN "(%s) " cPIN "[%s]",
                afl->crash_mode ? cPIN
@@ -1746,11 +1704,6 @@ void show_stats_pizza(afl_state_t *afl) {
                                : cYEL "Mozzarbella Pizzeria management system",
                si, afl->use_banner, afl->power_name);
 
-#ifdef __linux__
-
-    }
-
-#endif
 
   }
 
